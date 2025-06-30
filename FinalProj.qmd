@@ -1,0 +1,180 @@
+---
+title: "STAT 184 Final Project"
+author: "Jaikhush Thakkar"
+format: pdf
+execute:
+  echo: false
+  warning: false
+  message: false
+code-appendix: true
+toc: true
+editor: visual
+---
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(rvest)
+library(tidyr)
+library(stringr)
+
+```
+
+# Introduction
+
+The FIFA World Cup is the most prestigious and widely viewed football tournament globally. It has brought together countries across all continents to compete for the ultimate honor in football and arguably in all of sport. In this project, I intended to explore and analyze three key research questions by using data, scraped from Wikipedia:
+
+1.Which countries have won the most FIFA World Cups, and how does their title count compare?
+
+2.How do representations among different football confederations (continent-wise) compare in the FIFA World Cup Knockouts?
+
+3.How has the number of goals scored by Golden Boot winners changed over time?
+
+# Background Information
+
+To answer these three questions, I scraped three different datasets:
+
+-   A table of FIFA World Cup winners and other statistics.
+-   A table showing participation of each football confederation different stages of the tournament.
+-   A list of Golden Boot winners with their goal tallies and other statistics
+
+Each dataset is cleaned and transformed,in order for me to explore and report on patterns in country success,confederation dominance, and top scorer performance over the decades.
+
+# Data Summary
+
+## Data Sources & Provenance
+
+-   **World Cup Winners Data**: Scraped from the "List of FIFA World Cup Finals" Wikipedia page ([link](https://en.wikipedia.org/wiki/List_of_FIFA_World_Cup_finals#Results)). It includes counts of titles and appearances,etc.
+-   **Confederation Knockout Performance**: Scraped from the main FIFA World Cup Wikipedia page ([link](https://en.wikipedia.org/wiki/FIFA_World_Cup)). Shows stage-wise success for each confederation.
+-   **Golden Boot Winners**: Scraped from the "List of FIFA World Cup top goalscorers" Wikipedia page ([link](https://en.wikipedia.org/wiki/List_of_FIFA_World_Cup_top_goalscorers)).
+
+These were scraped using rvest, cleaned using dplyr and tidyr, and visualized using ggplot. Column names were standardized and types were adjusted. Attributes of focus:
+
+-   RQ1: Team and Winners
+-   RQ2: Confederation, Stage, Count
+-   RQ3: Year, Player, Goals
+
+## Scraping and Cleaning Data
+
+```{r scraping}
+# RQ1: World Cup Winners
+url_results <- "https://en.wikipedia.org/wiki/List_of_FIFA_World_Cup_finals#Results"
+tables_results <- url_results %>%
+  read_html() %>%
+  html_nodes("table") %>%
+  html_table(fill = TRUE)
+results_raw <- tables_results[[5]]
+
+
+# RQ2: Confederation Performance
+url_conf <- "https://en.wikipedia.org/wiki/FIFA_World_Cup"
+tables_conf <- url_conf %>%
+  read_html() %>%
+  html_nodes("table") %>%
+  html_table(fill = TRUE)
+conf_raw <- tables_conf[[7]]
+
+
+# RQ3: Golden Boot Winners
+url_boot <- "https://en.wikipedia.org/wiki/List_of_FIFA_World_Cup_top_goalscorers"
+tables_boot <- url_boot %>%
+  read_html() %>%
+  html_nodes("table") %>%
+  html_table(fill = TRUE)
+boot_raw <- tables_boot[[6]]
+
+
+```
+
+# Exploratory Data Analysis
+
+## RQ1: Which countries have won the most FIFA World Cups?
+
+```{r}
+# Clean and convert
+results_clean <- results_raw %>%
+  select(Country = 1, Titles = 2) %>%
+  filter(!is.na(Titles), Titles != "—", Titles != "") %>%
+  mutate(
+    Titles = as.numeric(Titles)
+  ) %>%
+  arrange(desc(Titles))
+
+# Display top countries as a table
+results_clean %>%
+  head(10) %>%
+  knitr::kable(caption = "Top 10 FIFA World Cup Winning Countries")
+
+# Plot bar chart of World Cup titles
+ggplot(results_clean, aes(x = reorder(Country, Titles), y = Titles)) +
+  geom_col(fill = "blue") +
+  coord_flip() +
+  labs(
+    title = "FIFA World Cup Titles by Country",
+    x = "Country",
+    y = "Number of Titles"
+  )
+```
+
+## RQ2: Confederation Performance in Knockouts
+
+```{r}
+conf_clean <- conf_raw %>%
+  rename(Stage = 1) %>%
+  pivot_longer(cols = 2:7, names_to = "Confederation", values_to = "Count") %>%
+  filter(Stage %in% c("Top 16", "Top 8", "Top 4", "Top 2", "1st")) %>%
+  mutate(Count = as.numeric(Count))
+
+conf_clean %>%
+  group_by(Stage, Confederation) %>%
+  summarise(Total = sum(Count, na.rm = TRUE), .groups = 'drop') %>%
+  pivot_wider(names_from = Stage, values_from = Total) %>%
+  knitr::kable(caption = "Confederation-wise Knockout Performance")
+
+ggplot(conf_clean, aes(x = Stage, y = Count, fill = Confederation)) +
+  geom_col(position = "dodge") +
+  labs(
+    title = "Confederation Representation in World Cup Knockouts",
+    x = "Stage",
+    y = "Count"
+  )
+
+```
+
+## RQ3: How has the number of Golden Boot goals changed over time?
+
+```{r}
+boot_clean <- boot_raw %>%
+  select(WorldCup = 1, Player = 2, Goals = 4) %>%
+  mutate(
+    Year = as.numeric(str_extract(WorldCup, "\\d{4}")),
+    Goals = as.numeric(Goals)
+  ) %>%
+  filter(!is.na(Year), !is.na(Goals)) %>%
+  arrange(Year)
+
+ggplot(boot_clean, aes(x = Year, y = Goals)) +
+  geom_line() +
+  geom_point() +
+  labs(
+    title = "Golden Boot Goals Over Time",
+    x = "World Cup Year",
+    y = "Goals Scored"
+  )
+
+```
+
+# Conclusion
+
+This analysis of FIFA World Cup data using historical statistics from Wikipedia revealed several key insights across teams, confederations, and top scorers:
+
+-   **RQ1 – Country Success**:\
+    Brazil dominates the World Cup history and leads all nations with 5 FIFA World Cup titles, followed closely by Italy and Germany with 4 each. Argentina sits third with 3 titles. While France and Uruguay are also notable winners, several historically strong teams such as the Netherlands and Sweden have never won despite multiple deep runs.
+
+-   **RQ2 – Confederation Performance**:\
+    UEFA (Europe) clearly dominates the knockout rounds, particularly the Top 8 and Top 4 stages, showing both breadth and depth of European talent. CONMEBOL (South America) also consistently reaches final stages but with fewer nations contributing. Other confederations like AFC, CAF, and CONCACAF have much lower representation, especially beyond the Round of 16.
+
+-   **RQ3 – Golden Boot Goal Trends**:\
+    Golden Boot winners scored the most goals in the mid-20th century, with Just Fontaine netting 13 in 1958. In more recent years, the number of goals required to win the Golden Boot has generally declined, with most winners scoring between 5–8 goals. This reflects a trend toward tighter, more tactical tournaments and greater defensive strength.
+
+Overall, the data illustrates the enduring dominance of a few powerhouse countries and confederations, while also showing evolving patterns in individual goal-scoring performance over time.
