@@ -39,4 +39,15 @@ All data is scraped using `rvest` from Wikipedia. The datasets are accessed live
 - **Golden Boot Winners Table**:  
   Scraped from [Wikipedia – FIFA Top Goalscorers](https://en.wikipedia.org/wiki/List_of_FIFA_World_Cup_top_goalscorers)
 
+
+## Style Guide
+
+All R code was written following the **Tidyverse Style Guide**: [https://style.tidyverse.org](https://style.tidyverse.org)
+
+
+## Authors
+
+**Jaikhush Thakkar** – jqt5735@psu.edu  
+Penn State University | Summer 2025 | STAT 184 Final Project
+
   
